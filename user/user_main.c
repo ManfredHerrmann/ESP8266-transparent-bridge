@@ -20,6 +20,8 @@
 #include "osapi.h"
 #include "driver/uart.h"
 #include "task.h"
+#include "user_interface.h"
+#include "gpio.h"
 
 #include "server.h"
 #include "config.h"
@@ -33,16 +35,25 @@ static uint8 uartbuffer[MAX_UARTBUFFER];
 
 static void ICACHE_FLASH_ATTR recvTask(os_event_t *events)
 {
-	uint8_t i;	 
+	uint8_t i;
 	while (READ_PERI_REG(UART_STATUS(UART0)) & (UART_RXFIFO_CNT << UART_RXFIFO_CNT_S))
 	{
 		WRITE_PERI_REG(0X60000914, 0x73); //WTD
 		uint16 length = 0;
 		while ((READ_PERI_REG(UART_STATUS(UART0)) & (UART_RXFIFO_CNT << UART_RXFIFO_CNT_S)) && (length<MAX_UARTBUFFER))
 			uartbuffer[length++] = READ_PERI_REG(UART_FIFO(UART0)) & 0xFF;
-		for (i = 0; i < MAX_CONN; ++i)
-			if (connData[i].conn) 
-				espbuffsent(&connData[i], uartbuffer, length);		
+		for (i = 0; i < MAX_CONN; ++i) {
+			if (connData[i].conn) {
+				if (connData[i].skip_chars == 0) {
+					espbuffsent(&connData[i], uartbuffer, length);
+				} else if (connData[i].skip_chars >= length) {
+					connData[i].skip_chars -= length;
+				} else { // connData[i].skip_chars < length
+					espbuffsent(&connData[i], uartbuffer+connData[i].skip_chars, length-connData[i].skip_chars);
+					connData[i].skip_chars = 0;
+				}
+			}
+		}
 	}
 
 	if(UART_RXFIFO_FULL_INT_ST == (READ_PERI_REG(UART_INT_ST(UART0)) & UART_RXFIFO_FULL_INT_ST))
@@ -82,6 +93,22 @@ void user_init(void)
 	#endif
 	os_printf("size flash_param_t %d\n", sizeof(flash_param_t));
 
+#ifdef CONFIG_RESET
+	//set GPIO0 to output mode
+	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO0_U, FUNC_GPIO0);
+	//disable pulldown
+	PIN_PULLDWN_DIS(PERIPHS_IO_MUX_GPIO0_U);
+	//enable pull up R
+	PIN_PULLUP_EN(PERIPHS_IO_MUX_GPIO0_U);
+
+	//set GPIO2 to output mode
+	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2);
+	//disable pulldown
+	PIN_PULLDWN_DIS(PERIPHS_IO_MUX_GPIO2_U);
+	//enable pull up R
+	PIN_PULLUP_EN(PERIPHS_IO_MUX_GPIO2_U);
+#endif
+
 
 	#ifdef CONFIG_STATIC
 		// refresh wifi config
@@ -96,6 +123,11 @@ void user_init(void)
 
 	for (i = 0; i < 16; ++i)
 		uart0_sendStr("\r\n");
+
+	wifi_set_sleep_type(NONE_SLEEP_T);
+
+	REG_SET_BIT(0x3ff00014, BIT(0));
+	os_update_cpu_frequency(160);
 
 	system_os_task(recvTask, recvTaskPrio, recvTaskQueue, recvTaskQueueLen);
 }

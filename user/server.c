@@ -4,6 +4,7 @@
 #include "espconn.h"
 #include "mem.h"
 #include "osapi.h"
+#include <gpio.h>
 
 #include "server.h"
 #include "config.h"
@@ -20,7 +21,7 @@ serverConnData connData[MAX_CONN];
 static serverConnData ICACHE_FLASH_ATTR *serverFindConnData(void *arg) {
 	int i;
 	for (i=0; i<MAX_CONN; i++) {
-		if (connData[i].conn==(struct espconn *)arg) 
+		if (connData[i].conn==(struct espconn *)arg)
 			return &connData[i];
 	}
 	//os_printf("FindConnData: Huh? Couldn't find connection for %p\n", arg);
@@ -36,7 +37,7 @@ static sint8  ICACHE_FLASH_ATTR sendtxbuffer(serverConnData *conn) {
 	if (conn->txbufferlen != 0)	{
 		conn->readytosend = false;
 		result= espconn_sent(conn->conn, (uint8_t*)conn->txbuffer, conn->txbufferlen);
-		conn->txbufferlen = 0;	
+		conn->txbufferlen = 0;
 		if (result != ESPCONN_OK)
 			os_printf("sendtxbuffer: espconn_sent error %d on conn %p\n", result, conn);
 	}
@@ -67,8 +68,9 @@ sint8 ICACHE_FLASH_ATTR espbuffsentstring(serverConnData *conn, const char *data
 }
 
 //use espbuffsent instead of espconn_sent
-//It solve problem: the next espconn_sent must after espconn_sent_callback of the pre-packet.
-//Add data to the send buffer and send if previous send was completed it call sendtxbuffer and  espconn_sent
+//It solves the problem that espconn_sent must only be called *after* receiving an
+//espconn_sent_callback for the previous packet.
+//Add data to the send buffer. If the previous send was completed it calls sendtxbuffer and espconn_sent
 //Returns ESPCONN_OK (0) for success, -128 if buffer is full or error from  espconn_sent
 sint8 ICACHE_FLASH_ATTR espbuffsent(serverConnData *conn, const char *data, uint16 len) {
 	if (conn->txbufferlen + len > MAX_TXBUFFER) {
@@ -77,7 +79,7 @@ sint8 ICACHE_FLASH_ATTR espbuffsent(serverConnData *conn, const char *data, uint
 	}
 	os_memcpy(conn->txbuffer + conn->txbufferlen, data, len);
 	conn->txbufferlen += len;
-	if (conn->readytosend) 
+	if (conn->readytosend)
 		return sendtxbuffer(conn);
 	return ESPCONN_OK;
 }
@@ -104,7 +106,27 @@ static void ICACHE_FLASH_ATTR serverRecvCb(void *arg, char *data, unsigned short
 		config_parse(conn, data, len);
 	} else
 #endif
+#ifdef CONFIG_RESET
+	// If the connection starts with the Arduino or ARM reset sequence we perform a RESET using
+	// GPIO0 and GPIO2
+	if (len == 2 && data[0] == 0x30 && data[1] == 0x20 && conn->conn_start
+	||  len == 2 && data[0] == '?'  && data[1] == '\n' && conn->conn_start) {
+		// send reset to arduino/ARM
+		GPIO_OUTPUT_SET(0, 0);
+		os_delay_us(100L);
+		GPIO_OUTPUT_SET(2, 0);
+		os_delay_us(1000L);
+		GPIO_OUTPUT_SET(2, 1);
+		os_delay_us(100L);
+		GPIO_OUTPUT_SET(0, 1);
+		os_delay_us(1000L);
 		uart0_tx_buffer(data, len);
+		conn->skip_chars = 2;
+	} else
+#endif
+		uart0_tx_buffer(data, len);
+
+	conn->conn_start = false; // no longer accept a Arduino/ARM reset sequence
 }
 
 static void ICACHE_FLASH_ATTR serverReconCb(void *arg, sint8 err) {
@@ -140,6 +162,8 @@ static void ICACHE_FLASH_ATTR serverConnectCb(void *arg) {
 	connData[i].conn=conn;
 	connData[i].txbufferlen = 0;
 	connData[i].readytosend = true;
+	connData[i].conn_start = true;
+	connData[i].skip_chars = 0;
 
 	espconn_regist_recvcb(conn, serverRecvCb);
 	espconn_regist_reconcb(conn, serverReconCb);

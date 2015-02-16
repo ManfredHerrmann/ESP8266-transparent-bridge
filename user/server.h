@@ -14,10 +14,12 @@
 typedef struct serverConnData serverConnData;
 
 struct serverConnData {
-        struct espconn *conn;
+		struct espconn *conn;
 		char *txbuffer; //the buffer for the data to send
 		uint16  txbufferlen; //the length  of data in txbuffer
  		bool readytosend; //true, if txbuffer can send by espconn_sent
+		bool conn_start; // true at start of connection, allowing Arduino/ARM reset sequence
+		uint8 skip_chars; // number of chars to skip from uart, used in Arduino reset sequence
 };
 
 void ICACHE_FLASH_ATTR serverInit(int port);
