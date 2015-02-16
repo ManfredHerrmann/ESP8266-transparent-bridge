@@ -1,21 +1,32 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 
-//#define CONFIG_STATIC
+#undef CONFIG_STATIC
+#define CONFIG_DYNAMIC
+#define CONFIG_RESET
+
+// override in this file
+#include "config_wifi.h"
+
 #ifdef CONFIG_STATIC
 
-#define STA_SSID	"ssid2join"
+#ifndef STA_SSID
+#define STA_SSID	"your-wifi-ssid"
+#endif
+#ifndef STA_PASSWORD
 #define STA_PASSWORD	"password"
-#define AP_SSID		"myssid"
-#define AP_PASSWORD	"password"
-// over ride in this file
-#include "config_wifi.h"
+#endif
+#ifndef AP_SSID
+#define AP_SSID		"esp8266-9"
+#endif
+#ifndef AP_PASSWORD
+#define AP_PASSWORD	"tr@nsp@r#nt"
+#endif
 
 void config_execute(void);
 
 #endif
 
-#define CONFIG_DYNAMIC
 #ifdef CONFIG_DYNAMIC
 
 typedef struct config_commands {
