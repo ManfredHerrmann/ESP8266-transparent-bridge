@@ -27,12 +27,9 @@ Features
 * You can program your Arduino over WiFi. Just hit the reset button and upload your sketch using
   avrdude. Or, connect GPIO0 or GPIO2 to your Arduino's reset pin and it's fully automatic.
   The upload happens over Wifi by telling avrdude to use a network port instead of a serial
-  device as follows:
-```
-    avrdude -c avrisp -p m328p -P net:192.168.4.1:23 -F -U flash:w:mySketch.hex:i
-```
+  device using `avrdude -c avrisp -p m328p -P net:192.168.4.1:23 -F -U flash:w:mySketch.hex:i`
 * You can statically configure the ESP when you build the firmware. Each time the unit boots
-  it uses values defined in config_wifi.h.  For this create `./config_wifi.h` with content
+  it uses values defined in `config_wifi.h`.  For this create `./config_wifi.h` with content
   patterned after the following:
 ```
   #define CONFIG_STATIC  // use #undef if you do not want a static config
@@ -47,7 +44,7 @@ Features
   enabled by default.  To disable, comment the following line in `user/config.h` or add a
   `#undef` into `config_wifi.h`:
 ```
-    #define CONFIG_DYNAMIC
+  #define CONFIG_DYNAMIC
 ```
 
 ### Configuration commands:
@@ -55,24 +52,24 @@ Features
 Telnet into the module and issue commands prefixed by +++AT to escape each command from bridge mode.
 The dynamic configuration commands are:
 ```
-+++AT                       # do nothing, print OK
-+++AT MODE                  # print current opmode 
-+++AT MODE <mode>           # set opmode 1=STA, 2=AP, 3=both
-+++AT STA                   # print current ssid and password connected to
-+++AT STA <ssid> <password> # set ssid and password to connect to
-+++AT AP                    # print the current soft ap settings
-+++AT AP <ssid>             # set the AP as open with specified ssid
++++AT                         # do nothing, print OK
++++AT MODE                    # print current opmode 
++++AT MODE <mode>             # set opmode 1=STA, 2=AP, 3=both
++++AT STA                     # print current ssid and password connected to
++++AT STA <ssid> <password>   # set ssid and password to connect to
++++AT AP                      # print the current soft ap settings
++++AT AP <ssid>               # set the AP as open with specified ssid
 +++AT AP <ssid> <password> [<authmode> [<ch>]]] # set the AP ssid and password,
-                            # authmode: 1=WEP, 2=WPA, 3=WPA2, 4=WPA+WPA2, channel: 1..13
-+++AT BAUD                  # print current UART baud rate
+                              # authmode: 1=WEP, 2=WPA, 3=WPA2, 4=WPA+WPA2, channel: 1..13
++++AT BAUD                    # print current UART baud rate
 +++AT BAUD <baud> [<authmode> [<ch>]]] # set currrent UART baud rate and optional
-                            # data bits = 5/6/7/8, parity = N/E/O, stop bits = 1/1.5/2
-+++AT PORT                  # print current incoming TCP socket port
-+++AT PORT <port>           # set current incoming TCP socket port (restarts ESP)
-+++AT FLASH                 # print current flash settings
-+++AT FLASH <1|0>           # 1: save changed UART settings (++AT BAUD ...) (default),
-                            # 0: do not save UART settings to flash
-+++AT RESET                 # software reset the unit
+                              # data bits = 5/6/7/8, parity = N/E/O, stop bits = 1/1.5/2
++++AT PORT                    # print current incoming TCP socket port
++++AT PORT <port>             # set current incoming TCP socket port (restarts ESP)
++++AT FLASH                   # print current flash settings
++++AT FLASH <1|0>             # 1: save changed UART settings (++AT BAUD ...) (default),
+                              # 0: do not save UART settings to flash
++++AT RESET                   # software reset the unit
 ```
 Upon success, all commands send back "OK" as their final output.  Note that passwords may not
 contain spaces.  For the softAP, the mode is fixed to AUTH_WPA_PSK.
@@ -142,6 +139,8 @@ SDK 0.9.4 an espconn_send must not be made until after the espconn_sent_callback
 packet. As a result of all this, the first few incoming UART characters in the FIFO get sent
 immediately via the tx-buffer, and then often the next bunch of characters are buffered up.
 As a result, many TCP packets only have a small number of bytes. 
+* The static configuration does not work
+* The flashing of arduinos is way, way too slow
 
 Building the firmware on Linux
 ------------------------------
@@ -158,18 +157,18 @@ Then build the firmware as follows:
 - Edit `config_wifi.h` file with your desired wifi settings
 - Run `make -f Makefile_open` and you should end up with:
 ```
-    $ ls -ls firmware/
-    total 180
-     32 -rw-rw-r-- 1 tve tve  32608 Feb 14 16:45 0x00000.bin
-     48 -rw-rw-r-- 1 tve tve 150748 Feb 14 16:45 0x40000.bin
+  $ ls -ls firmware/
+  total 180
+   32 -rw-rw-r-- 1 tve tve  32608 Feb 14 16:45 0x00000.bin
+   48 -rw-rw-r-- 1 tve tve 150748 Feb 14 16:45 0x40000.bin
 ```
 
 You can now flash your ESP:
 - Connect GPIO0 to ground and apply reset (briefly connect RST to ground)
 - Run the flash upload command, something like:
 ```
-    /opt/Espressif/esptool-py/esptool.py --port /dev/tty.USB0 write_flash \
-        0x00000 eagle.app.v6.flash.bin 0x40000 eagle.app.v6.irom0text.bin
+  /opt/Espressif/esptool-py/esptool.py --port /dev/tty.USB0 write_flash \
+       0x00000 eagle.app.v6.flash.bin 0x40000 eagle.app.v6.irom0text.bin
 ```
 
 You can now test your firmware:
@@ -192,7 +191,6 @@ Please install in a folder i.e. `c:\Projects\Espressif\`
   I used `xtensa-lx106-elf-141114.7z` from
   [drive.google.com](https://drive.google.com/uc?export=download&confirm=XHSI&id=0BzWyTGWIwcYQallNcTlxek1qNTQ)
 - `esptool-py.py` # [www.esp8266.com](http://www.esp8266.com/download/file.php?id=321 )
-```
 
 The files used by Visual Studio are:
 ```
